@@ -84,16 +84,16 @@ fn player_movement(
     let mut transform = query.single_mut();
     let speed = 100.0;
 
-    if keyboard_input.pressed(KeyCode::ArrowLeft) {
+    if keyboard_input.pressed(KeyCode::KeyA) {
         transform.translation.x -= speed * time.delta_seconds();
     }
-    if keyboard_input.pressed(KeyCode::ArrowRight) {
+    if keyboard_input.pressed(KeyCode::KeyD) {
         transform.translation.x += speed * time.delta_seconds();
     }
-    if keyboard_input.pressed(KeyCode::ArrowUp) {
+    if keyboard_input.pressed(KeyCode::KeyW) {
         transform.translation.y += speed * time.delta_seconds();
     }
-    if keyboard_input.pressed(KeyCode::ArrowDown) {
+    if keyboard_input.pressed(KeyCode::KeyS) {
         transform.translation.y -= speed * time.delta_seconds();
     }
 }
