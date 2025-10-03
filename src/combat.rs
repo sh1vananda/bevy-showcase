@@ -8,20 +8,21 @@ pub fn freeze_camera(mut camera_query: Query<&mut Transform, With<OverworldCamer
     }
 }
 
-pub fn unfreeze_camera() {
-    // Camera will resume following in overworld
-}
+pub fn unfreeze_camera() {}
 
 pub fn setup_battle(
     mut commands: Commands,
     battle_state: Res<CurrentBattle>,
     enemy_query: Query<&Enemy>,
+    mut spawner: ResMut<BulletSpawner>,
 ) {
-    // Battle arena border
+    spawner.timer = Timer::from_seconds(0.5, TimerMode::Repeating);
+    
+    // Arena border
     commands.spawn((
         Sprite {
-            color: Color::srgb(0.3, 0.3, 0.4),
-            custom_size: Some(Vec2::new(ARENA_WIDTH + 4.0, ARENA_HEIGHT + 4.0)),
+            color: Color::srgb(0.8, 0.3, 0.3),
+            custom_size: Some(Vec2::new(ARENA_WIDTH + 6.0, ARENA_HEIGHT + 6.0)),
             ..default()
         },
         Transform::from_translation(Vec3::new(0.0, BATTLE_ARENA_Y, 10.0)),
@@ -31,7 +32,7 @@ pub fn setup_battle(
     // Arena interior
     commands.spawn((
         Sprite {
-            color: Color::srgb(0.15, 0.15, 0.2),
+            color: Color::srgb(0.05, 0.05, 0.08),
             custom_size: Some(Vec2::new(ARENA_WIDTH, ARENA_HEIGHT)),
             ..default()
         },
@@ -43,10 +44,10 @@ pub fn setup_battle(
     commands.spawn((
         Sprite {
             color: Color::srgb(1.0, 0.2, 0.2),
-            custom_size: Some(Vec2::new(20.0, 20.0)),
+            custom_size: Some(Vec2::new(22.0, 22.0)),
             ..default()
         },
-        Transform::from_translation(Vec3::new(-100.0, BATTLE_ARENA_Y - 30.0, 11.0)),
+        Transform::from_translation(Vec3::new(0.0, BATTLE_ARENA_Y - 50.0, 11.0)),
         Player {
             health: PLAYER_MAX_HEALTH,
             max_health: PLAYER_MAX_HEALTH,
@@ -55,7 +56,7 @@ pub fn setup_battle(
         PlayerSprite,
     ));
 
-    // Enemy
+    // Enemy sprite
     if let Ok(enemy) = enemy_query.get(battle_state.enemy_entity) {
         let size = 50.0 + (enemy.attack_pattern as f32 * 7.0);
         commands.spawn((
@@ -64,7 +65,7 @@ pub fn setup_battle(
                 custom_size: Some(Vec2::new(size, size)),
                 ..default()
             },
-            Transform::from_translation(Vec3::new(110.0, BATTLE_ARENA_Y + 20.0, 11.0)),
+            Transform::from_translation(Vec3::new(0.0, BATTLE_ARENA_Y + 80.0, 11.0)),
             BattleSprite,
             EnemySprite,
         ));
@@ -77,7 +78,7 @@ pub fn setup_battle(
             custom_size: Some(Vec2::new(320.0, 24.0)),
             ..default()
         },
-        Transform::from_translation(Vec3::new(0.0, BATTLE_ARENA_Y - 100.0, 11.0)),
+        Transform::from_translation(Vec3::new(0.0, BATTLE_ARENA_Y - 110.0, 11.0)),
         BattleSprite,
     ));
 
@@ -88,7 +89,7 @@ pub fn setup_battle(
             custom_size: Some(Vec2::new(50.0, 24.0)),
             ..default()
         },
-        Transform::from_translation(Vec3::new(0.0, BATTLE_ARENA_Y - 100.0, 11.1)),
+        Transform::from_translation(Vec3::new(0.0, BATTLE_ARENA_Y - 110.0, 11.1)),
         BattleSprite,
     ));
 
@@ -99,7 +100,7 @@ pub fn setup_battle(
             custom_size: Some(Vec2::new(10.0, 32.0)),
             ..default()
         },
-        Transform::from_translation(Vec3::new(-160.0, BATTLE_ARENA_Y - 100.0, 11.5)),
+        Transform::from_translation(Vec3::new(-160.0, BATTLE_ARENA_Y - 110.0, 11.5)),
         AttackIndicator {
             speed: 220.0,
             direction: 1.0,
@@ -144,7 +145,7 @@ pub fn battle_phase_system(
         BattlePhase::EnemyTelegraph => {
             if battle_state.phase_timer.just_finished() {
                 battle_state.phase = BattlePhase::BulletHell;
-                battle_state.phase_timer = Timer::from_seconds(3.5, TimerMode::Once);
+                battle_state.phase_timer = Timer::from_seconds(4.0, TimerMode::Once);
             }
         }
         BattlePhase::BulletHell => {
@@ -152,7 +153,6 @@ pub fn battle_phase_system(
                 battle_state.phase = BattlePhase::Resolution;
                 battle_state.phase_timer = Timer::from_seconds(1.0, TimerMode::Once);
                 
-                // Clear bullets
                 for bullet in bullets.iter() {
                     commands.entity(bullet).despawn();
                 }
@@ -240,7 +240,8 @@ pub fn player_turn_input(
                 enemy.health -= damage;
 
                 if let Ok(enemy_transform) = enemy_query.single() {
-                    spawn_damage(&mut commands, format!("{}\n-{} HP", text, damage), enemy_transform.translation, color);
+                    spawn_damage(&mut commands, format!("{}\n-{}", text, damage), 
+                        Vec3::new(80.0, BATTLE_ARENA_Y + 80.0, 15.0), color);
                     spawn_particles(&mut commands, enemy_transform.translation, color, 12);
 
                     if let Ok(mut shake) = shake_query.single_mut() {
@@ -255,7 +256,7 @@ pub fn player_turn_input(
 
     if keyboard.just_pressed(KeyCode::Digit2) {
         battle_state.player_defended = true;
-        spawn_text(&mut commands, "⚔ DEFENDING ⚔", Vec3::new(-100.0, BATTLE_ARENA_Y + 10.0, 12.0), Color::srgb(0.3, 0.8, 1.0));
+        spawn_text(&mut commands, "⚔ DEFENDING ⚔", Vec3::new(0.0, BATTLE_ARENA_Y + 10.0, 15.0), Color::srgb(0.3, 0.8, 1.0));
         start_enemy_turn(&mut battle_state, &mut commands, &enemy_query);
     }
 }
@@ -266,18 +267,18 @@ fn start_enemy_turn(
     enemy_query: &Query<&Transform, With<EnemySprite>>,
 ) {
     battle_state.phase = BattlePhase::EnemyTelegraph;
-    battle_state.phase_timer = Timer::from_seconds(1.2, TimerMode::Once);
+    battle_state.phase_timer = Timer::from_seconds(1.5, TimerMode::Once);
 
     if let Ok(transform) = enemy_query.single() {
         commands.spawn((
             Sprite {
-                color: Color::srgba(1.0, 0.3, 0.3, 0.6),
-                custom_size: Some(Vec2::new(90.0, 90.0)),
+                color: Color::srgba(1.0, 0.3, 0.3, 0.7),
+                custom_size: Some(Vec2::new(100.0, 100.0)),
                 ..default()
             },
             Transform::from_translation(transform.translation),
             Telegraph {
-                timer: Timer::from_seconds(1.2, TimerMode::Once),
+                timer: Timer::from_seconds(1.5, TimerMode::Once),
             },
             BattleSprite,
         ));
@@ -289,7 +290,8 @@ pub fn spawn_bullet_patterns(
     time: Res<Time>,
     mut spawner: ResMut<BulletSpawner>,
     battle_state: Res<CurrentBattle>,
-    enemy_query: Query<(&Enemy, &Transform), With<EnemySprite>>,
+    enemy_query: Query<&Enemy>,
+    enemy_sprite_query: Query<&Transform, With<EnemySprite>>,
 ) {
     if battle_state.phase != BattlePhase::BulletHell {
         return;
@@ -298,36 +300,38 @@ pub fn spawn_bullet_patterns(
     spawner.timer.tick(time.delta());
 
     if spawner.timer.just_finished() {
-        if let Ok((enemy, transform)) = enemy_query.single() {
-            match enemy.attack_pattern % 4 {
-                0 => spawn_wave(&mut commands, transform.translation),
-                1 => spawn_spiral(&mut commands, transform.translation),
-                2 => spawn_spread(&mut commands, transform.translation),
-                _ => spawn_cross(&mut commands, transform.translation),
+        if let Ok(enemy) = enemy_query.get(battle_state.enemy_entity) {
+            if let Ok(transform) = enemy_sprite_query.single() {
+                match enemy.attack_pattern % 4 {
+                    0 => spawn_wave(&mut commands, transform.translation),
+                    1 => spawn_spiral(&mut commands, transform.translation),
+                    2 => spawn_spread(&mut commands, transform.translation),
+                    _ => spawn_cross(&mut commands, transform.translation),
+                }
             }
         }
     }
 }
 
 fn spawn_wave(commands: &mut Commands, origin: Vec3) {
-    for i in 0..4 {
-        let offset_x = (i as f32 - 1.5) * 50.0;
-        spawn_bullet(commands, origin + Vec3::new(offset_x, 0.0, 0.0), Vec2::new(0.0, -90.0));
+    for i in 0..3 {
+        let offset_x = (i as f32 - 1.0) * 60.0;
+        spawn_bullet(commands, origin + Vec3::new(offset_x, 0.0, 0.0), Vec2::new(0.0, -70.0));
     }
 }
 
 fn spawn_spiral(commands: &mut Commands, origin: Vec3) {
     for i in 0..6 {
-        let angle = (i as f32 * std::f32::consts::TAU / 6.0);
-        let vel = Vec2::new(angle.cos() * 85.0, angle.sin() * 85.0);
+        let angle = i as f32 * std::f32::consts::TAU / 6.0;
+        let vel = Vec2::new(angle.cos() * 65.0, angle.sin() * 65.0);
         spawn_bullet(commands, origin, vel);
     }
 }
 
 fn spawn_spread(commands: &mut Commands, origin: Vec3) {
-    for i in 0..7 {
-        let angle = -0.8 + (i as f32 * 0.27);
-        let vel = Vec2::new(angle.sin() * 95.0, -angle.cos() * 95.0);
+    for i in 0..5 {
+        let angle = -0.6 + (i as f32 * 0.3);
+        let vel = Vec2::new(angle.sin() * 75.0, -angle.cos() * 75.0);
         spawn_bullet(commands, origin, vel);
     }
 }
@@ -335,22 +339,22 @@ fn spawn_spread(commands: &mut Commands, origin: Vec3) {
 fn spawn_cross(commands: &mut Commands, origin: Vec3) {
     let dirs = [Vec2::new(1.0, 0.0), Vec2::new(-1.0, 0.0), Vec2::new(0.0, 1.0), Vec2::new(0.0, -1.0)];
     for dir in dirs {
-        spawn_bullet(commands, origin, dir * 85.0);
+        spawn_bullet(commands, origin, dir * 70.0);
     }
 }
 
 fn spawn_bullet(commands: &mut Commands, position: Vec3, velocity: Vec2) {
     commands.spawn((
         Sprite {
-            color: Color::srgb(1.0, 0.9, 0.9),
-            custom_size: Some(Vec2::new(14.0, 14.0)),
+            color: Color::srgb(1.0, 0.95, 0.2),
+            custom_size: Some(Vec2::new(28.0, 28.0)),
             ..default()
         },
         Transform::from_translation(position),
         Bullet {
             velocity,
             damage: 4,
-            lifetime: Timer::from_seconds(6.0, TimerMode::Once),
+            lifetime: Timer::from_seconds(8.0, TimerMode::Once),
         },
         BattleSprite,
     ));
@@ -369,7 +373,7 @@ pub fn update_bullets(
 
         if bullet.lifetime.is_finished() || 
            transform.translation.x.abs() > 500.0 || 
-           transform.translation.y.abs() > 500.0 {
+           (transform.translation.y - BATTLE_ARENA_Y).abs() > 300.0 {
             commands.entity(entity).despawn();
         }
     }
@@ -383,17 +387,18 @@ pub fn check_bullet_collision(
 ) {
     let Ok((player_transform, mut player)) = player_query.single_mut() else { return };
 
-    for (entity, bullet_transform, bullet) in bullet_query.iter() {
+    for (bullet_entity, bullet_transform, bullet) in bullet_query.iter() {
         let distance = player_transform.translation.distance(bullet_transform.translation);
 
-        if distance < 17.0 {
+        if distance < 25.0 {
             let damage = if battle_state.player_defended { 1 } else { bullet.damage };
             player.health -= damage;
 
-            spawn_damage(&mut commands, format!("-{}", damage), player_transform.translation, Color::srgb(1.0, 0.6, 0.3));
-            spawn_particles(&mut commands, bullet_transform.translation, Color::srgb(1.0, 0.7, 0.3), 8);
+            spawn_damage(&mut commands, format!("-{}", damage), 
+                Vec3::new(-100.0, BATTLE_ARENA_Y - 50.0, 15.0), Color::srgb(1.0, 0.6, 0.3));
+            spawn_particles(&mut commands, bullet_transform.translation, Color::srgb(1.0, 0.7, 0.3), 10);
 
-            commands.entity(entity).despawn();
+            commands.entity(bullet_entity).despawn();
         }
     }
 }
@@ -409,7 +414,7 @@ pub fn bullet_hell_player_movement(
     }
 
     let Ok(mut transform) = query.single_mut() else { return };
-    let speed = 130.0;
+    let speed = 150.0;
     let mut direction = Vec2::ZERO;
 
     if keyboard.pressed(KeyCode::KeyA) || keyboard.pressed(KeyCode::ArrowLeft) {
@@ -446,8 +451,8 @@ pub fn update_telegraph(
     for (entity, mut sprite, mut telegraph) in query.iter_mut() {
         telegraph.timer.tick(time.delta());
         
-        let pulse = (time.elapsed_secs() * 12.0).sin() * 0.5 + 0.5;
-        sprite.color.set_alpha(0.4 + pulse * 0.5);
+        let pulse = (time.elapsed_secs() * 15.0).sin() * 0.5 + 0.5;
+        sprite.color.set_alpha(0.5 + pulse * 0.4);
 
         if telegraph.timer.is_finished() {
             commands.entity(entity).despawn();
@@ -460,7 +465,7 @@ fn spawn_damage(commands: &mut Commands, text: String, pos: Vec3, color: Color) 
         Text::new(text),
         TextFont { font_size: 26.0, ..default() },
         TextColor(color),
-        Transform::from_translation(pos + Vec3::new(0.0, 30.0, 1.0)),
+        Transform::from_translation(pos),
         DamageNotif {
             timer: Timer::from_seconds(1.0, TimerMode::Once),
             velocity: Vec2::new(0.0, 50.0),
@@ -493,7 +498,7 @@ fn spawn_particles(commands: &mut Commands, pos: Vec3, color: Color, count: usiz
         commands.spawn((
             Sprite {
                 color,
-                custom_size: Some(Vec2::new(4.0, 4.0)),
+                custom_size: Some(Vec2::new(5.0, 5.0)),
                 ..default()
             },
             Transform::from_translation(pos),

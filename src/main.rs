@@ -21,7 +21,7 @@ fn main() {
         .insert_resource(CurrentBattle {
             enemy_entity: Entity::PLACEHOLDER,
             phase: BattlePhase::Intro,
-            phase_timer: Timer::from_seconds(0.0, TimerMode::Once),
+            phase_timer: Timer::from_seconds(0.8, TimerMode::Once),
             player_defended: false,
             combo_count: 0,
         })
@@ -31,8 +31,7 @@ fn main() {
             total_rooms: TOTAL_ROOMS,
         })
         .insert_resource(BulletSpawner {
-            timer: Timer::from_seconds(0.7, TimerMode::Repeating),
-            pattern: 0,
+            timer: Timer::from_seconds(0.5, TimerMode::Repeating),
         })
         .add_systems(Startup, (setup_camera, setup_world, setup_ui))
         .add_systems(OnEnter(GameState::MainMenu), setup_main_menu)
@@ -48,7 +47,10 @@ fn main() {
             )
                 .run_if(in_state(GameState::Overworld)),
         )
-        .add_systems(OnEnter(GameState::Battle), (combat::setup_battle, combat::freeze_camera))
+        .add_systems(
+            OnEnter(GameState::Battle),
+            (combat::setup_battle, combat::freeze_camera, hide_overworld_ui),
+        )
         .add_systems(
             Update,
             (
@@ -63,7 +65,10 @@ fn main() {
             )
                 .run_if(in_state(GameState::Battle)),
         )
-        .add_systems(OnExit(GameState::Battle), (combat::cleanup_battle, combat::unfreeze_camera))
+        .add_systems(
+            OnExit(GameState::Battle),
+            (combat::cleanup_battle, combat::unfreeze_camera, show_overworld_ui),
+        )
         .add_systems(
             Update,
             (
@@ -72,6 +77,7 @@ fn main() {
                 effects::update_battle_ui,
                 effects::update_phase_text,
                 effects::update_particles,
+                effects::update_room_counter,
             ),
         )
         .add_systems(Update, game_over_screen.run_if(in_state(GameState::GameOver)))
@@ -80,15 +86,11 @@ fn main() {
 }
 
 fn setup_camera(mut commands: Commands) {
-    commands.spawn((
-        Camera2d,
-        ScreenShake { trauma: 0.0 },
-        OverworldCamera,
-    ));
+    commands.spawn((Camera2d, ScreenShake { trauma: 0.0 }, OverworldCamera));
 }
 
 fn setup_world(mut commands: Commands) {
-    // Player in overworld
+    // Player
     commands.spawn((
         Sprite {
             color: Color::srgb(0.3, 0.8, 1.0),
@@ -114,7 +116,7 @@ fn setup_world(mut commands: Commands) {
     for i in 0..TOTAL_ROOMS {
         let y_pos = (i as f32 * ROOM_HEIGHT) - 150.0;
 
-        // Room
+        // Room background
         commands.spawn((
             Sprite {
                 color: Color::srgb(0.12, 0.12, 0.18),
@@ -144,7 +146,7 @@ fn setup_world(mut commands: Commands) {
             },
         ));
 
-        // Boundaries
+        // Room boundaries
         for offset in [-56.0, 56.0] {
             commands.spawn((
                 Sprite {
@@ -170,7 +172,7 @@ fn setup_world(mut commands: Commands) {
 }
 
 fn setup_ui(mut commands: Commands) {
-    // Battle arena overlay (top screen)
+    // Battle arena overlay
     commands.spawn((
         Sprite {
             color: Color::srgba(0.08, 0.08, 0.15, 0.98),
@@ -182,11 +184,11 @@ fn setup_ui(mut commands: Commands) {
         BattleUI,
     ));
 
-    // Health text - TOP LEFT
+    // TOP LEFT - Health text
     commands.spawn((
-        Text::new("♥ Player: 30/30 HP\n◆ Enemy: 20/20 HP"),
+        Text::new("♥ Player: 30/30\n◆ Enemy: 20/20"),
         TextFont {
-            font_size: 22.0,
+            font_size: 18.0,
             ..default()
         },
         TextColor(Color::srgb(1.0, 1.0, 1.0)),
@@ -201,11 +203,28 @@ fn setup_ui(mut commands: Commands) {
         BattleUI,
     ));
 
-    // Phase text - TOP RIGHT
+    // TOP CENTER - Room counter
+    commands.spawn((
+        Text::new("ROOM 0 / 6"),
+        TextFont {
+            font_size: 20.0,
+            ..default()
+        },
+        TextColor(Color::srgb(0.3, 1.0, 0.3)),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(20.0),
+            left: Val::Px(560.0),
+            ..default()
+        },
+        RoomCounter,
+    ));
+
+    // TOP RIGHT - Phase text
     commands.spawn((
         Text::new("YOUR TURN"),
         TextFont {
-            font_size: 24.0,
+            font_size: 20.0,
             ..default()
         },
         TextColor(Color::srgb(0.3, 1.0, 0.3)),
@@ -220,19 +239,18 @@ fn setup_ui(mut commands: Commands) {
         BattleUI,
     ));
 
-    // Controls - BOTTOM CENTER
+    // BOTTOM LEFT - Battle controls
     commands.spawn((
-        Text::new("[SPACE] Time Attack | [2] Defend | WASD to Dodge"),
+        Text::new("[SPACE] Attack | [2] Defend | [WASD] Dodge"),
         TextFont {
-            font_size: 20.0,
+            font_size: 18.0,
             ..default()
         },
         TextColor(Color::srgb(1.0, 0.9, 0.4)),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(20.0),
-            width: Val::Percent(100.0),
-            justify_content: JustifyContent::Center,
+            bottom: Val::Px(70.0),
+            left: Val::Px(20.0),
             ..default()
         },
         ControlsText,
@@ -240,39 +258,34 @@ fn setup_ui(mut commands: Commands) {
         BattleUI,
     ));
 
-    // Overworld instructions - BOTTOM CENTER
+    // BOTTOM LEFT - Overworld instructions
     commands.spawn((
-        Text::new("WASD: Move | Approach enemies to battle | Reach the exit!"),
+        Text::new("WASD: Move | Get close to enemies to battle!"),
         TextFont {
-            font_size: 18.0,
+            font_size: 16.0,
             ..default()
         },
         TextColor(Color::srgb(0.9, 0.9, 0.9)),
         Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(20.0),
-            width: Val::Percent(100.0),
-            justify_content: JustifyContent::Center,
+            left: Val::Px(20.0),
             ..default()
         },
+        OverworldInstructions,
     ));
+}
 
-    // Room counter - TOP CENTER
-    commands.spawn((
-        Text::new("Room 0 / 6"),
-        TextFont {
-            font_size: 22.0,
-            ..default()
-        },
-        TextColor(Color::srgb(0.3, 1.0, 0.3)),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(20.0),
-            width: Val::Percent(100.0),
-            justify_content: JustifyContent::Center,
-            ..default()
-        },
-    ));
+fn hide_overworld_ui(mut query: Query<&mut Visibility, With<OverworldInstructions>>) {
+    for mut visibility in query.iter_mut() {
+        *visibility = Visibility::Hidden;
+    }
+}
+
+fn show_overworld_ui(mut query: Query<&mut Visibility, With<OverworldInstructions>>) {
+    for mut visibility in query.iter_mut() {
+        *visibility = Visibility::Visible;
+    }
 }
 
 fn setup_main_menu(mut commands: Commands) {
@@ -321,15 +334,26 @@ fn game_over_screen(
 ) {
     if keyboard.just_pressed(KeyCode::Space) {
         game_progress.rooms_cleared = 0;
+        game_progress.current_room = 0;
+
         if let Ok(player_entity) = player_query.single() {
-            commands.entity(player_entity).insert(Transform::from_translation(Vec3::new(0.0, -220.0, 1.0)));
+            commands.entity(player_entity).insert((
+                Transform::from_translation(Vec3::new(0.0, -220.0, 1.0)),
+                Player {
+                    health: PLAYER_MAX_HEALTH,
+                    max_health: PLAYER_MAX_HEALTH,
+                },
+            ));
         }
+
         for mut enemy in enemy_query.iter_mut() {
             enemy.health = enemy.max_health;
         }
+
         for mut room in rooms_query.iter_mut() {
             room.cleared = false;
         }
+
         game_state.set(GameState::Overworld);
     }
 }
@@ -345,15 +369,26 @@ fn victory_screen(
 ) {
     if keyboard.just_pressed(KeyCode::Space) {
         game_progress.rooms_cleared = 0;
+        game_progress.current_room = 0;
+
         if let Ok(player_entity) = player_query.single() {
-            commands.entity(player_entity).insert(Transform::from_translation(Vec3::new(0.0, -220.0, 1.0)));
+            commands.entity(player_entity).insert((
+                Transform::from_translation(Vec3::new(0.0, -220.0, 1.0)),
+                Player {
+                    health: PLAYER_MAX_HEALTH,
+                    max_health: PLAYER_MAX_HEALTH,
+                },
+            ));
         }
+
         for mut enemy in enemy_query.iter_mut() {
             enemy.health = enemy.max_health;
         }
+
         for mut room in rooms_query.iter_mut() {
             room.cleared = false;
         }
+
         game_state.set(GameState::Overworld);
     }
 }

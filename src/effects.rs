@@ -70,7 +70,7 @@ pub fn update_battle_ui(
     let Ok(enemy) = enemy_query.get(battle_state.enemy_entity) else { return };
 
     **text = format!(
-        "♥ Player: {}/{} HP\n◆ Enemy: {}/{} HP",
+        "♥ Player: {}/{}\n◆ Enemy: {}/{}",
         player.health.max(0),
         player.max_health,
         enemy.health.max(0),
@@ -86,7 +86,7 @@ pub fn update_phase_text(
 
     match battle_state.phase {
         BattlePhase::Intro => {
-            **text = "GET READY!".to_string();
+            **text = "READY!".to_string();
             color.0 = Color::srgb(1.0, 1.0, 1.0);
         }
         BattlePhase::PlayerTurn => {
@@ -105,4 +105,12 @@ pub fn update_phase_text(
             **text = "".to_string();
         }
     }
+}
+
+pub fn update_room_counter(
+    game_progress: Res<GameProgress>,
+    mut query: Query<&mut Text, With<RoomCounter>>,
+) {
+    let Ok(mut text) = query.single_mut() else { return };
+    **text = format!("ROOM {} / {}", game_progress.rooms_cleared, game_progress.total_rooms);
 }

@@ -19,18 +19,14 @@ pub enum BattlePhase {
     Resolution,
 }
 
-// Constants
 pub const PLAYER_SPEED: f32 = 180.0;
 pub const PLAYER_MAX_HEALTH: i32 = 30;
 pub const ROOM_HEIGHT: f32 = 140.0;
 pub const TOTAL_ROOMS: usize = 6;
-
-// Battle arena constants
 pub const BATTLE_ARENA_Y: f32 = 250.0;
 pub const ARENA_WIDTH: f32 = 350.0;
 pub const ARENA_HEIGHT: f32 = 280.0;
 
-// Components
 #[derive(Component)]
 pub struct Player {
     pub health: i32,
@@ -105,6 +101,12 @@ pub struct HealthText;
 pub struct ControlsText;
 
 #[derive(Component)]
+pub struct OverworldInstructions;
+
+#[derive(Component)]
+pub struct RoomCounter;
+
+#[derive(Component)]
 pub struct MainMenuUI;
 
 #[derive(Component)]
@@ -116,7 +118,6 @@ pub struct Particle {
     pub velocity: Vec2,
 }
 
-// Resources
 #[derive(Resource)]
 pub struct CurrentBattle {
     pub enemy_entity: Entity,
@@ -136,5 +137,4 @@ pub struct GameProgress {
 #[derive(Resource)]
 pub struct BulletSpawner {
     pub timer: Timer,
-    pub pattern: usize,
 }
